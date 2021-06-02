@@ -17,7 +17,13 @@ from multiprocessing import Process
 
 from dotstar import Adafruit_DotStar
 from menu import MenuItem, Menu, Back, MenuContext, MenuDelegate
-from drinks import drink_list, drink_options
+from drinks import drink_options
+
+with open('static/json/drinks.json') as f:
+  drink_list = json.load(f)
+
+
+
 
 app = Flask(__name__)
 
@@ -46,12 +52,15 @@ processbartender = 0
 
 @app.route("/about")
 def about():
-    return render_template("about.html")
+    return render_template("home.html_save")
 
 @app.route('/')
 def index():
     return render_template("home.html")
 
+@app.route('/home')
+def home():
+    return render_template("home.html")
 
 @app.route("/poweroff")
 def power():
