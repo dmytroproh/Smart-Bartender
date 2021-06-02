@@ -8,6 +8,9 @@ import json
 import threading
 import traceback
 import random
+import os
+import psutil
+from threading import Thread
 from flask import Flask, request, jsonify, abort, render_template
 
 
@@ -15,7 +18,7 @@ from dotstar import Adafruit_DotStar
 from menu import MenuItem, Menu, Back, MenuContext, MenuDelegate
 from drinks import drink_list, drink_options
 
-app = Flask(__name__)
+#app = Flask(__name__)
 
 GPIO.setmode(GPIO.BCM)
 
@@ -39,12 +42,70 @@ NEOPIXEL_BRIGHTNESS = 30
 FLOW_RATE = 60.0/100.0
 
 
+#@app.route("/about")
+#def about():
+#    return render_template("about.html")
+
+#@app.route('/')
+#def index():
+    #bartender = Bartender()
+    #bartender.buildMenu(drink_list, drink_options)
+#    bartender.run()
+ #   return render_template("home.html")
+
+
+#@app.route("/poweroff")
+#def power():
+#    os.system("shutdown -h now")
+
+#def shutdown_server():
+    #func = request.environ.get('werkzeug.server.shutdown')
+    #if func is None:
+        #raise RuntimeError('Not running with the Werkzeug Server')
+    #func()
+
+#@app.route("/reboot")
+#def restart():
+#	try:
+#		#shutdown_server()
+#		os.system('reboot')
+#		return 'Server restarting...'
+#		#func = request.environ.get('werkzeug.server.shutdown')
+		#if func is None:
+        	#	raise RuntimeError('Not running with the Werkzeug Server')
+		#func()
+		#print("argv was",sys.argv)
+		#print("sys.executable was", sys.executable)
+    		#print("restart now")
+		#os.execv(sys.executable, ['python'] + sys.argv)
+        	#p = psutil.Process(os.getpid())
+		#for handler in p.get_open_files() + p.connections():
+			#os.close(handler.fd)
+#	except Exception, e:
+#		print str(e)
+#
+#	python = sys.executable
+#	os.execl(python, python, *sys.argv)    
+#python = sys.executable
+    #os.execl(python, python, * sys.argv)
 
 class Bartender(MenuDelegate): 
+	#app = Flask(__name__)
+	#app = Flask('API')
+
+	#@app.route('/')
+	#def index():
+    #bartender = Bartender()
+    #bartender.buildMenu(drink_list, drink_options)
+#    bartender.run()
+		#return render_template("home.html")
+
 	def __init__(self):
 		self.running = False
+		self._running = True
+		#app.run(debug=True, use_reloader=False, port=80, host='0.0.0.0')
 
-		# set the oled screen height
+         	# set the oled screen height
 		self.screen_width = SCREEN_WIDTH
 		self.screen_height = SCREEN_HEIGHT
 
@@ -92,10 +153,9 @@ class Bartender(MenuDelegate):
 		self.strip.show() 
 
 		print "Done initializing"
-
-	@app.route('/')
-	def index():
-    		return render_template("home.html")
+	
+	def terminate(self):
+    		self._running = False
 
 	@staticmethod
 	def readPumpConfiguration():
@@ -114,7 +174,7 @@ class Bartender(MenuDelegate):
 		self.running = True
 		GPIO.add_event_detect(self.btn1Pin, GPIO.FALLING, callback=self.left_btn, bouncetime=LEFT_PIN_BOUNCE)  
 		GPIO.add_event_detect(self.btn2Pin, GPIO.FALLING, callback=self.right_btn, bouncetime=RIGHT_PIN_BOUNCE)  
-		time.sleep(1)
+		#time.sleep(1)
 		self.running = False
 
 	def stopInterrupts(self):
@@ -417,25 +477,30 @@ class Bartender(MenuDelegate):
 				self.led.draw_pixel(x + p_loc, h + y)
 
 	def run(self):
+		#app = flask.Flask('API')
+		#self.app.run()
 		self.startInterrupts()
 		self.readDrinkDescription()
 		# main loop
 		try:  
-			while True:
+			while self._running:
 				time.sleep(0.1)
-		  
-		except KeyboardInterrupt:  
-			print "CTRL+C pressed"  
-		finally:
-			GPIO.cleanup()           # clean up GPIO on normal exit 
 
-		traceback.print_exc()
+		  	#GPIO.cleanup()
+
+		#except KeyboardInterrupt:  
+			#print "CTRL+C pressed"  
+		finally:
+			print "e" #GPIO.cleanup()           # clean up GPIO on normal exit 
+
+		#traceback.print_exc()
 
 
 def runApp():
 	try:
-		app.run(debug=True, use_reloader=False, port=5000, host='0.0.0.0')
+		app.run(debug=True, use_reloader=False, port=80, host='0.0.0.0')
 	except KeyboardInterrupt:
+		print "a"
 		exit()
 
 def runBartender():
@@ -444,30 +509,39 @@ def runBartender():
 		bartender.buildMenu(drink_list, drink_options)
 		bartender.run()
 	except KeyboardInterrupt:
-		exit()
+		print "CTRL+C pressed"
+	finally:
+		GPIO.cleanup()
 
 if __name__ == '__main__':
-	try:
-        	t1 = threading.Thread(target=runApp)
-		t1.daemon = True
-		t1.start()
-		t2 = threading.Thread(target=runBartender).start()
-		t2.daemon = True
-		t2.start()
-		
-		while True:
-			time.sleep(1)
+    
+#threads = []
+    
+	bartender = Bartender()
+	bartender.buildMenu(drink_list, drink_options)
+#app.run(debug=True, use_reloader=False, port=80, host='0.0.0.0')
+#t1 = threading.Thread(target=app.run(debug=True, use_reloader=False, port=80, host='0.0.0.0'))
+#t1.setDaemon(True)
+#t1.start()
+#threads.append(t1)
 
-	except KeyboardInterrupt:
-		exit()
-		print "e"
-	except Exception as e:
-		print "Unexpected error:" + str(e)
-#if __name__ == '__main__':
-	#app.run(debug=True, port=80, host='0.0.0.0', use_reloader=False)
-#	bartender = Bartender()
-#	bartender.buildMenu(drink_list, drink_options)
-#	bartender.run()
+	#t2 = threading.Thread(target=bartender.run())
+	#t2.setDaemon(True)
+        #t2.start()
+	#threads.append(t2)
+	#thread = Thread(target = app.run(host='0.0.0.0'))
+	#thread.start
+	bartender.run()
+	#thread.join()
+#	while True:
+#		try: 
+#			i = 2	
+#		except KeyboardInterrupt:
+            # Ctrl-C handling and send kill to threads
+#			print "Sending kill to threads..."
+#			bartender.terminate()
+#			for t in threads:
+#				t.join()
+			#GPIO.cleanup()
 
-
-
+	print "Exited"
