@@ -8,10 +8,14 @@ import json
 import threading
 import traceback
 import random
+from flask import Flask, request, jsonify, abort, render_template
+
 
 from dotstar import Adafruit_DotStar
 from menu import MenuItem, Menu, Back, MenuContext, MenuDelegate
 from drinks import drink_list, drink_options
+
+app = Flask(__name__)
 
 GPIO.setmode(GPIO.BCM)
 
@@ -34,6 +38,8 @@ NEOPIXEL_BRIGHTNESS = 30
 
 FLOW_RATE = 60.0/100.0
 
+
+
 class Bartender(MenuDelegate): 
 	def __init__(self):
 		self.running = False
@@ -47,7 +53,7 @@ class Bartender(MenuDelegate):
 	 
 	 	# configure interrups for buttons
 	 	GPIO.setup(self.btn1Pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-		GPIO.setup(self.btn2Pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)  
+		GPIO.setup(self.btn2Pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
 		# configure screen
 		spi_bus = 0
@@ -87,9 +93,17 @@ class Bartender(MenuDelegate):
 
 		print "Done initializing"
 
+	@app.route('/')
+	def index():
+    		return render_template("home.html")
+
 	@staticmethod
 	def readPumpConfiguration():
 		return json.load(open('/home/pi/bartender/Smart-Bartender/pump_config.json'))
+
+	@staticmethod
+        def readDrinkDescription():
+                return json.load(open('/home/pi/bartender/Smart-Bartender/drinks.json'))
 
 	@staticmethod
 	def writePumpConfiguration(configuration):
@@ -97,8 +111,11 @@ class Bartender(MenuDelegate):
 			json.dump(configuration, jsonFile)
 
 	def startInterrupts(self):
+		self.running = True
 		GPIO.add_event_detect(self.btn1Pin, GPIO.FALLING, callback=self.left_btn, bouncetime=LEFT_PIN_BOUNCE)  
 		GPIO.add_event_detect(self.btn2Pin, GPIO.FALLING, callback=self.right_btn, bouncetime=RIGHT_PIN_BOUNCE)  
+		time.sleep(1)
+		self.running = False
 
 	def stopInterrupts(self):
 		GPIO.remove_event_detect(self.btn1Pin)
@@ -233,7 +250,7 @@ class Bartender(MenuDelegate):
 		pumpThreads = []
 
 		# cancel any button presses while the drink is being made
-		# self.stopInterrupts()
+		self.stopInterrupts()
 		self.running = True
 
 		for pump in self.pump_configuration.keys():
@@ -258,7 +275,7 @@ class Bartender(MenuDelegate):
 		time.sleep(2);
 
 		# reenable interrupts
-		# self.startInterrupts()
+		self.startInterrupts()
 		self.running = False
 
 	def displayMenuItem(self, menuItem):
@@ -401,22 +418,56 @@ class Bartender(MenuDelegate):
 
 	def run(self):
 		self.startInterrupts()
+		self.readDrinkDescription()
 		# main loop
 		try:  
 			while True:
 				time.sleep(0.1)
 		  
 		except KeyboardInterrupt:  
-			GPIO.cleanup()       # clean up GPIO on CTRL+C exit  
-		GPIO.cleanup()           # clean up GPIO on normal exit 
+			print "CTRL+C pressed"  
+		finally:
+			GPIO.cleanup()           # clean up GPIO on normal exit 
 
 		traceback.print_exc()
 
 
-bartender = Bartender()
-bartender.buildMenu(drink_list, drink_options)
-bartender.run()
+def runApp():
+	try:
+		app.run(debug=True, use_reloader=False, port=5000, host='0.0.0.0')
+	except KeyboardInterrupt:
+		exit()
 
+def runBartender():
+	try:
+		bartender = Bartender()
+		bartender.buildMenu(drink_list, drink_options)
+		bartender.run()
+	except KeyboardInterrupt:
+		exit()
+
+if __name__ == '__main__':
+	try:
+        	t1 = threading.Thread(target=runApp)
+		t1.daemon = True
+		t1.start()
+		t2 = threading.Thread(target=runBartender).start()
+		t2.daemon = True
+		t2.start()
+		
+		while True:
+			time.sleep(1)
+
+	except KeyboardInterrupt:
+		exit()
+		print "e"
+	except Exception as e:
+		print "Unexpected error:" + str(e)
+#if __name__ == '__main__':
+	#app.run(debug=True, port=80, host='0.0.0.0', use_reloader=False)
+#	bartender = Bartender()
+#	bartender.buildMenu(drink_list, drink_options)
+#	bartender.run()
 
 
 
